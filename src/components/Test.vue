@@ -17,7 +17,7 @@ export default {
     return {
       options: {
         // https://github.com/simple-uploader/Uploader/tree/develop/samples/Node.js
-        target: 'http://127.0.0.1:8080/api3/upload',
+        target: 'http://127.0.0.1:8777/upload',
         testChunks: false
       },
       attrs: {
