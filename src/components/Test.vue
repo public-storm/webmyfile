@@ -21,6 +21,7 @@
           <el-progress v-if="uploadProgress"
                        :percentage="(fileDataUploadList.length && fileDataList.length) ? ((fileDataUploadList.length / fileDataList.length)*100) : 0"
                        :status="(fileDataUploadList.length / fileDataList.length)===1 ? 'success':'exception'"></el-progress>
+          <el-progress :text-inside="true" :stroke-width="15" :percentage="100" status="success"></el-progress>
         </div>
       </el-form-item>
       <div style="text-align:center" v-if="upDataBtnShow">
@@ -60,12 +61,10 @@ export default {
         'Accept': 'application/json',
         'Authorization': localStorage.getItem("token"),
       },
-      // 文件列表
+
       fileList: [],
-
-      chunkSize: 1024 * 1024
-
-
+      chunkSize: 1024 * 1024,
+      percentageNum:0
     }
   },
   methods: {
@@ -76,6 +75,7 @@ export default {
     },
     // 自定义文件上传的模式，方法
     myFileUpload(file) {
+      let that = this;
       let blobSlice = File.prototype.slice || File.prototype.mozSlice || File.prototype.webkitSlice,
           inFile = file.file,
           chunkSize = this.chunkSize,
@@ -88,8 +88,8 @@ export default {
           // fileReader 读取文件二进制
           fileReader = new FileReader(),
           // 返回分片数据
-          listFile = [];
-
+          listFile = [],
+          success = 0;
       // fileReader读取结束触发
       fileReader.onload = function (e) {
         spark.append(e.target.result);
@@ -100,11 +100,16 @@ export default {
           const identifier = spark.end();
           for (let i = 0; i < listFile.length; i++) {
             listFile[i].identifier = identifier;
-            let formData = new FormtData();
-            formData.forEach((value, key) => listFile[i][key] = value);
+            let formData = new FormData();
+            Object.keys(listFile[i]).forEach((key) => {
+              formData.append(key, listFile[i][key]);
+            });
             upload(formData).then(res => {
               const {data} = res
-              console.log(data)
+              if (data.code === '100003') {
+                success++;
+                console.log(success)
+              }
             }).catch(() => {
 
             })
@@ -143,7 +148,13 @@ export default {
         listFile.push(f);
         fileReader.readAsArrayBuffer(blobSlice.call(inFile, start, end));
       }
+      function percentage() {
+        while (success < chunks){
+          console.log(success)
+        }
+      }
       loadNext();
+      percentage();
     },
     // 初始化上传接口的函数，再上面上传之前调用的
     fileUpLoad(reslove, reject) {
