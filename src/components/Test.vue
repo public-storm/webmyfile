@@ -100,8 +100,9 @@ export default {
           const identifier = spark.end();
           for (let i = 0; i < listFile.length; i++) {
             listFile[i].identifier = identifier;
-            console.log(listFile[i])
-            upload(listFile[i]).then(res => {
+            let formData = new FormtData();
+            formData.forEach((value, key) => listFile[i][key] = value);
+            upload(formData).then(res => {
               const {data} = res
               console.log(data)
             }).catch(() => {
