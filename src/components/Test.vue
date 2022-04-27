@@ -36,6 +36,7 @@
 import axios from 'axios'
 
 import SparkMD5 from "spark-md5";
+import {upload} from "@/api/myfile"
 
 export default {
   name: 'Test',
@@ -72,39 +73,76 @@ export default {
     beforeUpload(file) {
       // 显示进度条
       this.uploadProgress = true
-      // 获取分片数据
-      this.fileList = this.createFileChunk(file, this.chunkSize)
     },
     // 自定义文件上传的模式，方法
-    myFileUpload(params) {
-      console.log(this.fileList.length)
+    myFileUpload(file) {
+      let blobSlice = File.prototype.slice || File.prototype.mozSlice || File.prototype.webkitSlice,
+          inFile = file.file,
+          chunkSize = this.chunkSize,
+          // 总片数
+          chunks = Math.ceil(inFile.size / chunkSize),
+          // 当前片数
+          currentChunk = 0,
+          // md5类
+          spark = new SparkMD5.ArrayBuffer(),
+          // fileReader 读取文件二进制
+          fileReader = new FileReader(),
+          // 返回分片数据
+          listFile = [];
 
-      // /** 这里采用了循环请求，等全部循环上传请求完成以后再去执行合并请求的操作  Promise.all
-      //  * 参数既有url参数也有body参数
-      //  */
-      // let promiseAll = this.fileDataList.map(item => {
-        // console.log("item " + item)
-        // let formData = new URLSearchParams()
-        // formData.append('partNumber', item.partNumber)
-        // return new Promise((resolve, reject) => {
-        //   axios({
-        //     method: 'post',
-        //     headers: {
-        //       'Authorization': localStorage.getItem("token"),
-        //     },
-        //     params: formData,
-        //     url: `${this.uploadUrl}`,
-        //     data: item.file,
-        //   })
-        //       .then(res => {
-        //         this.fileDataUploadList.push(res.data.data)
-        //         resolve(res.data.data)
-        //       })
-        //       .catch(err => {
-        //         reject(err)
-        //       })
-        // })
-      // })
+      // fileReader读取结束触发
+      fileReader.onload = function (e) {
+        spark.append(e.target.result);
+        currentChunk++;
+        if (currentChunk < chunks) {
+          loadNext();
+        } else {
+          const identifier = spark.end();
+          for (let i = 0; i < listFile.length; i++) {
+            listFile[i].identifier = identifier;
+            console.log(listFile[i])
+            upload(listFile[i]).then(res => {
+              const {data} = res
+              console.log(data)
+            }).catch(() => {
+
+            })
+          }
+        }
+      };
+      // fileReader 读取异常
+      fileReader.onerror = function () {
+        console.warn('oops, something went wrong.');
+      };
+
+      // 文件分片
+      function loadNext() {
+        let start = currentChunk * chunkSize,
+            end = ((start + chunkSize) >= inFile.size) ? inFile.size : start + chunkSize;
+        // 当前分片
+        let tf = inFile.slice(start, end);
+        let f = {};
+        // 当前为第几分片
+        f.chunkNumber = currentChunk + 1;
+        // 每个分块的大小
+        f.chunkSize = chunkSize;
+        // 当前分块大小
+        f.currentChunkSize = tf.size;
+        // 文件总大小
+        f.totalSize = inFile.size;
+        // 文件名
+        f.filename = inFile.name;
+        // 文件上传相对路径（预留）
+        f.relativePath = '';
+        // 分片总数
+        f.totalChunks = chunks;
+        // 当前文件
+        // console.log(tf)
+        f.file = tf;
+        listFile.push(f);
+        fileReader.readAsArrayBuffer(blobSlice.call(inFile, start, end));
+      }
+      loadNext();
     },
     // 初始化上传接口的函数，再上面上传之前调用的
     fileUpLoad(reslove, reject) {
@@ -139,9 +177,7 @@ export default {
           // fileReader 读取文件二进制
           fileReader = new FileReader(),
           // 返回分片数据
-          listFile = [],
-          // 文件唯一标识
-          identifier;
+          listFile = [];
 
       // fileReader读取结束触发
       fileReader.onload = function (e) {
@@ -160,6 +196,7 @@ export default {
       fileReader.onerror = function () {
         console.warn('oops, something went wrong.');
       };
+
       // 文件分片
       function loadNext() {
         let start = currentChunk * chunkSize,
@@ -186,6 +223,7 @@ export default {
         listFile.push(f);
         fileReader.readAsArrayBuffer(blobSlice.call(file, start, end));
       }
+
       loadNext();
       return listFile
     },
