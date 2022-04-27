@@ -17,6 +17,8 @@
     "axios": "^0.26.1",
     "less": "^4.0.0",
     "less-loader": "^8.0.0",
+    "spark-md5": "^3.0.2",
+    "vue-router": "^3.2.0",
     "vue-simple-uploader": "^0.7.6",
     "vue-template-compiler": "^2.6.14"
   }
