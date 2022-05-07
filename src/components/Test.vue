@@ -15,7 +15,7 @@
               :limit="1">
             <el-button size="small" type="primary">点击上传</el-button>
           </el-upload>
-          <el-progress :text-inside="true" :stroke-width="10" :percentage="percentageNum"
+          <el-progress v-if="uploadProgress" :text-inside="true" :stroke-width="10" :percentage="percentageNum"
                        status="success"></el-progress>
         </div>
       </el-form-item>
@@ -34,12 +34,13 @@ export default {
     return {
       chunkSize: 1024 * 1024 * 100,
       requestNum: 5,
-      percentageNum: 0
+      percentageNum: 0,
+      uploadProgress:false
     }
   },
   methods: {
     upload(file) {
-      console.log(file)
+      this.uploadProgress = true;
       const f = file.file,
           chunkSize = this.chunkSize,
           identifier = SparkMD5.hash(f.name),
@@ -65,6 +66,7 @@ export default {
       }
       this.dataRequest(formDataList, 0, chunks.length);
       this.$refs.upload.clearFiles();
+      this.uploadProgress=false;
       this.percentageNum=0;
     },
     dataRequest(formDataList, num, chunksSize) {
