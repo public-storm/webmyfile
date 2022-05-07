@@ -64,6 +64,8 @@ export default {
         }
       }
       this.dataRequest(formDataList, 0, chunks.length);
+      this.$refs.upload.clearFiles();
+      this.percentageNum=0;
     },
     dataRequest(formDataList, num, chunksSize) {
       if (num < formDataList.length) {
