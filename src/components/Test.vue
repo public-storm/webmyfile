@@ -1,6 +1,6 @@
 <template>
   <div>
-    <el-form ref="form" :model="form" label-width="80px">
+    <el-form label-width="80px">
       <el-form-item label="文件" prop="file">
         <div class="upload-content">
           <el-upload
@@ -9,243 +9,106 @@
               ref="upload"
               multiple
               action=""
-              :http-request="myFileUpload"
-              :before-upload="beforeUpload"
-              :before-remove="beforeRemove"
-              :file-list="fileList"
+              :http-request="upload"
               :auto-upload="true"
+              :on-success="handleAvatarSuccess"
               :limit="1">
             <el-button size="small" type="primary">点击上传</el-button>
           </el-upload>
-          <!--我还给他写了一个及其简陋的上传loading，这个可以略过-->
-          <el-progress v-if="uploadProgress"
-                       :percentage="(fileDataUploadList.length && fileDataList.length) ? ((fileDataUploadList.length / fileDataList.length)*100) : 0"
-                       :status="(fileDataUploadList.length / fileDataList.length)===1 ? 'success':'exception'"></el-progress>
-          <el-progress :text-inside="true" :stroke-width="15" :percentage="100" status="success"></el-progress>
+          <el-progress :text-inside="true" :stroke-width="10" :percentage="percentageNum"
+                       status="success"></el-progress>
         </div>
       </el-form-item>
-      <div style="text-align:center" v-if="upDataBtnShow">
-        <el-button type="primary" @click="onSubmit(form)">确定更新</el-button>
-      </div>
     </el-form>
   </div>
 </template>
 
 <script>
-// 这个是他们的一个初始化上传的接口，上传之前请求这个接口会返回一个上传文件的地址 'uploadUrl'，一个请求合并文件的地址 'completeMultipartUrl'
-// import {initFileUpload} from "@/api/xxx"
-import axios from 'axios'
-
 import SparkMD5 from "spark-md5";
-import {upload} from "@/api/myfile"
+import {upload} from "@/api/myfile";
+
 
 export default {
   name: 'Test',
   data() {
     return {
-      form: {},
-      // 文件上传的地址
-      uploadUrl: '',
-      // 上传完成请求后台合并文件的地址
-      completeMultipartUrl: '',
-      // 文件分割以后的总列表数据
-      fileDataList: [],
-      // 文件上传成功以后的数据，上传多少个块push多少
-      fileDataUploadList: [],
-      // 这个是为了等文件全部上传以后我才显示下一步操作按钮
-      upDataBtnShow: false,
-      // 开始隐藏上传进度条
-      uploadProgress: false,
-      // 自定义上传请求头
-      uploadHeaders: {
-        'Accept': 'application/json',
-        'Authorization': localStorage.getItem("token"),
-      },
-
-      fileList: [],
-      chunkSize: 1024 * 1024,
-      percentageNum:0
+      chunkSize: 1024 * 1024 * 100,
+      requestNum: 5,
+      percentageNum: 0
     }
   },
   methods: {
-    // 上传前
-    beforeUpload(file) {
-      // 显示进度条
-      this.uploadProgress = true
-    },
-    // 自定义文件上传的模式，方法
-    myFileUpload(file) {
-      let that = this;
-      let blobSlice = File.prototype.slice || File.prototype.mozSlice || File.prototype.webkitSlice,
-          inFile = file.file,
+    upload(file) {
+      console.log(file)
+      const f = file.file,
           chunkSize = this.chunkSize,
-          // 总片数
-          chunks = Math.ceil(inFile.size / chunkSize),
-          // 当前片数
-          currentChunk = 0,
-          // md5类
-          spark = new SparkMD5.ArrayBuffer(),
-          // fileReader 读取文件二进制
-          fileReader = new FileReader(),
-          // 返回分片数据
-          listFile = [],
-          success = 0;
-      // fileReader读取结束触发
-      fileReader.onload = function (e) {
-        spark.append(e.target.result);
-        currentChunk++;
-        if (currentChunk < chunks) {
-          loadNext();
+          identifier = SparkMD5.hash(f.name),
+          requestNum = this.requestNum;
+      let chunks = [],
+          count = 0,
+          formDataList = [],
+          num = 0;
+      while (count < f.size) {
+        chunks.push(f.slice(count, count + chunkSize));
+        count += chunkSize;
+      }
+      for (let i = 0; i < chunks.length; i++) {
+        let d = this.formData(i, chunkSize, chunks[i], f.name, f.size, '', chunks.length, identifier);
+        if (i === 0 || i % requestNum === 0) {
+          let ls = [];
+          ls.push(d);
+          formDataList.push(ls);
+          num++;
         } else {
-          const identifier = spark.end();
-          for (let i = 0; i < listFile.length; i++) {
-            listFile[i].identifier = identifier;
-            let formData = new FormData();
-            Object.keys(listFile[i]).forEach((key) => {
-              formData.append(key, listFile[i][key]);
-            });
-            upload(formData).then(res => {
-              const {data} = res
-              if (data.code === '100003') {
-                success++;
-                console.log(success)
+          formDataList[num - 1].push(d);
+        }
+      }
+      this.dataRequest(formDataList, 0, chunks.length);
+    },
+    dataRequest(formDataList, num, chunksSize) {
+      if (num < formDataList.length) {
+        let l = formDataList[num];
+        let promises = [];
+        let that = this;
+        l.forEach((data) => {
+          promises.push(new Promise((resolve) => {
+            upload(data).then(res => {
+              if (res.data.code === '100003') {
+                let n = 1 / chunksSize * 100;
+                that.percentageNum += parseInt(n);
+                resolve(res);
               }
-            }).catch(() => {
-
+            }).catch((e) => {
+              console.log(e)
             })
-          }
-        }
-      };
-      // fileReader 读取异常
-      fileReader.onerror = function () {
-        console.warn('oops, something went wrong.');
-      };
-
-      // 文件分片
-      function loadNext() {
-        let start = currentChunk * chunkSize,
-            end = ((start + chunkSize) >= inFile.size) ? inFile.size : start + chunkSize;
-        // 当前分片
-        let tf = inFile.slice(start, end);
-        let f = {};
-        // 当前为第几分片
-        f.chunkNumber = currentChunk + 1;
-        // 每个分块的大小
-        f.chunkSize = chunkSize;
-        // 当前分块大小
-        f.currentChunkSize = tf.size;
-        // 文件总大小
-        f.totalSize = inFile.size;
-        // 文件名
-        f.filename = inFile.name;
-        // 文件上传相对路径（预留）
-        f.relativePath = '';
-        // 分片总数
-        f.totalChunks = chunks;
-        // 当前文件
-        // console.log(tf)
-        f.file = tf;
-        listFile.push(f);
-        fileReader.readAsArrayBuffer(blobSlice.call(inFile, start, end));
+          }))
+        })
+        Promise.all(promises).then(() => {
+          num++;
+          this.dataRequest(formDataList, num, chunksSize);
+        }).catch((e) => {
+          console.log(e);
+        })
+      } else {
+        this.percentageNum = 100;
       }
-      function percentage() {
-        while (success < chunks){
-          console.log(success)
-        }
-      }
-      loadNext();
-      percentage();
     },
-    // 初始化上传接口的函数，再上面上传之前调用的
-    fileUpLoad(reslove, reject) {
-      const paramsData = {
-        multipartUpload: true, // 是否是文件分步，分块上传
-        name: this.fileData.name,
-        size: this.fileData.size,
-      }
-      initFileUpload(paramsData).then(res => {
-        const uploadUrl = res.data.data.uploadUrl
-        const completeMultipartUrl = res.data.data.completeMultipartUrl
-        // 文件上传的请求地址
-        this.uploadUrl = uploadUrl
-        // 合并文件上传的请求地址
-        this.completeMultipartUrl = completeMultipartUrl
-        reslove();
-      }).catch((err) => {
-        reject(err)
-      })
+    formData(num, chunkSize, file, fileName, totalSize, relativePath, totalChunks, identifier) {
+      let formData = new FormData();
+      formData.append('chunkNumber', num);
+      formData.append('chunkSize', chunkSize);
+      formData.append('currentChunkSize', file.size);
+      formData.append('totalSize', totalSize);
+      formData.append('filename', fileName);
+      formData.append('relativePath', relativePath);
+      formData.append('totalChunks', totalChunks);
+      formData.append('file', file);
+      formData.append('identifier', identifier);
+      return formData;
     },
-
-
-    // 文件分割的方法
-    createFileChunk(file, chunkSize) {
-      let blobSlice = File.prototype.slice || File.prototype.mozSlice || File.prototype.webkitSlice,
-          // 总片数
-          chunks = Math.ceil(file.size / chunkSize),
-          // 当前片数
-          currentChunk = 0,
-          // md5类
-          spark = new SparkMD5.ArrayBuffer(),
-          // fileReader 读取文件二进制
-          fileReader = new FileReader(),
-          // 返回分片数据
-          listFile = [];
-
-      // fileReader读取结束触发
-      fileReader.onload = function (e) {
-        spark.append(e.target.result);
-        currentChunk++;
-        if (currentChunk < chunks) {
-          loadNext();
-        } else {
-          const identifier = spark.end();
-          for (let i = 0; i < listFile.length; i++) {
-            listFile[i].identifier = identifier;
-          }
-        }
-      };
-      // fileReader 读取异常
-      fileReader.onerror = function () {
-        console.warn('oops, something went wrong.');
-      };
-
-      // 文件分片
-      function loadNext() {
-        let start = currentChunk * chunkSize,
-            end = ((start + chunkSize) >= file.size) ? file.size : start + chunkSize;
-        // 当前分片
-        let tf = file.slice(start, end);
-        let f = {};
-        // 当前为第几分片
-        f.chunkNumber = currentChunk + 1;
-        // 每个分块的大小
-        f.chunkSize = chunkSize;
-        // 当前分块大小
-        f.currentChunkSize = tf.size;
-        // 文件总大小
-        f.totalSize = file.size;
-        // 文件名
-        f.filename = file.name;
-        // 文件上传相对路径（预留）
-        f.relativePath = '';
-        // 分片总数
-        f.totalChunks = chunks;
-        // 当前文件
-        f.file = tf;
-        listFile.push(f);
-        fileReader.readAsArrayBuffer(blobSlice.call(file, start, end));
-      }
-
-      loadNext();
-      return listFile
-    },
-
-
-    // 移除已上传的文件
-    beforeRemove(file, fileList) {
-      alert("beforeRemove")
-      // return this.$confirm(`确定移除 ${file.name}？`);
-    },
+    handleAvatarSuccess(){
+      alert('123')
+    }
   }
 }
 
