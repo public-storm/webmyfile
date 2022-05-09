@@ -10,8 +10,7 @@
               multiple
               action=""
               :http-request="upload"
-              :auto-upload="true"
-              :limit="1">
+              :auto-upload="true">
             <el-button size="small" type="primary">点击上传</el-button>
           </el-upload>
           <el-progress v-if="uploadProgress" :text-inside="true" :stroke-width="10" :percentage="percentageNum"
@@ -32,7 +31,7 @@ export default {
   data() {
     return {
       // 分片大小
-      chunkSize: 1024 * 1024 * 100,
+      chunkSize: 1024 * 100,
       // 同时上传数
       requestNum: 5,
       // 进度条百分比
@@ -41,8 +40,16 @@ export default {
       uploadProgress: false
     }
   },
+  created() {
+    this.$nextTick(() => {
+      this.$refs.upload.$children[0].$refs.input.webkitdirectory = true
+    })
+  },
   methods: {
     upload(file) {
+      console.log(file)
+    },
+    uploadSingle(file) {
       this.uploadProgress = true;
       // 文件
       const f = file.file,
@@ -85,7 +92,7 @@ export default {
                 }
               }
               // 封装上传对象
-              let d = this.formData(i, chunkSize, chunks[i], f.name, f.size, '', chunks.length, identifier);
+              let d = this.formData(i, chunkSize, chunks[i], f.name, f.size, 'relativePath', chunks.length, identifier);
               // 同时上传分组
               if (i === 0 || i % requestNum === 0) {
                 let ls = [];
