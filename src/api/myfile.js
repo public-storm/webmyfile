@@ -7,3 +7,12 @@ export function upload(query) {
         data: query
     })
 }
+
+
+export function checkUpload(query) {
+    return request({
+        url: `/upload`,
+        method: 'get',
+        params: query
+    })
+}
