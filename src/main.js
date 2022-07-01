@@ -1,15 +1,22 @@
 import Vue from 'vue'
 import App from './App.vue'
-import ElementUI from 'element-ui';
-import 'element-ui/lib/theme-chalk/index.css';
 import router from '@/router';
-import VueWorker from 'vue-worker'
+import myIcon from '@/components/MyIcon.vue';
+import progressPar from '@/components/ProgressPar';
+import Vuesax from 'vuesax'
 
-Vue.use(VueWorker)
+
+import 'vuesax/dist/vuesax.css' //Vuesax styles
+Vue.use(Vuesax, {
+    // options here
+})
 Vue.config.productionTip = false
-Vue.use(ElementUI);
-
+Vue.component('my-icon', myIcon);
+Vue.component('progress-par', progressPar);
 new Vue({
-  router,
-  render: h => h(App),
+    router,
+    render: h => h(App),
 }).$mount('#app')
+
+
+

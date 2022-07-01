@@ -1,28 +1,20 @@
 <template>
   <div id="app">
     <router-view></router-view>
-    <Test />
   </div>
 </template>
 
 <script>
-import Test from "@/components/Test.vue";
+import "./assets/css/reset.less"
 
 export default {
   name: 'App',
-  components: {
-    Test,
+  destroyed() {
+    window.localStorage.removeItem('userName');
   }
 }
 </script>
 
-<style lang="less">
-//#app {
-//  font-family: Avenir, Helvetica, Arial, sans-serif;
-//  -webkit-font-smoothing: antialiased;
-//  -moz-osx-font-smoothing: grayscale;
-//  text-align: center;
-//  color: #2c3e50;
-//  margin-top: 60px;
-//}
+<style>
+@import "./assets/fonts/iconfont.css";
 </style>
