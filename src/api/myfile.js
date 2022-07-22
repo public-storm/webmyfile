@@ -58,3 +58,11 @@ export function download(data) {
         data
     })
 }
+
+export function favorites(query) {
+    return request({
+        url: `/favorite`,
+        method: 'put',
+        params: query
+    })
+}

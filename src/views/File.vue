@@ -28,7 +28,7 @@
       <div class="table_search">
         <div class="select_box">
           <input type="text" v-model="searchValue" class="select_text" placeholder="文件名">
-          <div class="d_icon" @click="list">
+          <div class="d_icon" @click="list(favorite_active)">
             <my-icon id="icon-sousuo" class="icon" size="30"></my-icon>
           </div>
         </div>
@@ -43,6 +43,12 @@
                            @change="selected = $vs.checkAll(selected, files)"/>
             </vs-th>
             <vs-th class="th_name">文件</vs-th>
+            <vs-th class="th_favorite">
+              收藏
+              <span>
+                <vs-switch success class="favorite_switch" v-model="favorite_active"/>
+              </span>
+            </vs-th>
             <vs-th class="th_time">创建时间</vs-th>
             <vs-th>大小</vs-th>
           </vs-tr>
@@ -59,8 +65,20 @@
               </div>
               <div class="name_value">{{ tr.name }}</div>
             </vs-td>
+            <vs-td @click="upFavorites(tr.id,tr.favorite===0?1:0)">
+              <div class="favorites_1" v-if="tr.favorite===0">
+                <my-icon id="icon-Favorite" size="15"></my-icon>
+              </div>
+              <div class="favorites_2" v-if="tr.favorite===1">
+                <my-icon id="icon-favorites" size="13"></my-icon>
+              </div>
+            </vs-td>
             <vs-td>{{ tr.createTime }}</vs-td>
-            <vs-td>{{ tr.size }}</vs-td>
+            <vs-td>
+              <div v-if="tr.file === 1 || tr.superId === '-1'">
+                {{ (tr.size / (1024 * 1024 * 1024)).toFixed(4) }}GB
+              </div>
+            </vs-td>
           </vs-tr>
         </template>
       </vs-table>
@@ -126,7 +144,7 @@
 </template>
 
 <script>
-import {checkUpload, createFile, deleteFile, fileList, upload, download} from "@/api/myfile";
+import {checkUpload, createFile, deleteFile, fileList, upload, download, favorites} from "@/api/myfile";
 
 export default {
   name: "File",
@@ -167,11 +185,12 @@ export default {
       tag: 0,
       select_operation: false,
       delete_file: false,
-      delete_file_loading: false
+      delete_file_loading: false,
+      favorite_active: false
     }
   },
   created() {
-    this.list();
+    this.list(this.favorite_active);
   },
   watch: {
     fileData(newValue) {
@@ -206,6 +225,9 @@ export default {
       if (newValue.length === 0) {
         this.select_operation = false;
       }
+    },
+    favorite_active(newValue) {
+      this.list(newValue);
     }
   },
   methods: {
@@ -213,8 +235,11 @@ export default {
       alert(id);
     },
     // 文件列表
-    list() {
+    list(favorite) {
       let r = {id: this.pathId, name: this.searchValue}
+      if (favorite) {
+        r.favorite = 1;
+      }
       fileList(r).then((res) => {
         if (res.data.code === '100006') {
           this.files = res.data.data;
@@ -258,7 +283,7 @@ export default {
       let r = {name: this.dirName, id: this.pathId};
       createFile(r).then((res) => {
         if (res.data.code === '100005') {
-          this.list();
+          this.list(this.favorite_active);
           this.createDirLoading = false;
           this.add = false;
           this.dirName = '';
@@ -305,13 +330,13 @@ export default {
     choosePath(tr) {
       if (tr.file === 0) {
         this.pathId = tr.id;
-        this.list();
+        this.list(this.favorite_active);
         this.path.push({id: tr.id, name: tr.name});
       }
     },
     toPath(id) {
       this.pathId = id;
-      this.list();
+      this.list(this.favorite_active);
       let arr = this.path;
       let index = -1;
       for (let i = 0; i < arr.length; i++) {
@@ -356,7 +381,7 @@ export default {
           this.delete_file = false;
           this.selected = [];
         }
-        this.list();
+        this.list(this.favorite_active);
         this.delete_file_loading = false;
       })
     },
@@ -476,7 +501,7 @@ export default {
               }
               // 关闭定时器
               clearInterval(this.checkMargeTime);
-              this.list();
+              this.list(this.favorite_active);
             }
           } else {
             this.error(data.code, data.msg);
@@ -514,6 +539,14 @@ export default {
           }
         }
       }
+    },
+    upFavorites(id, tag) {
+      favorites({id: id, favorite: tag}).then(res => {
+        let data = res.data;
+        if (data.code === '100011') {
+          this.list(this.favorite_active);
+        }
+      })
     }
   }
 }
@@ -688,8 +721,13 @@ export default {
   width: 40px !important;
 }
 
+
 .th_name {
-  width: 60% !important;
+  width: 40% !important;
+}
+
+.th_favorite {
+  width: 20% !important;
 }
 
 .th_time {
@@ -817,6 +855,27 @@ export default {
 
 .top_ic {
   margin-top: 8px;
+}
+
+.favorites_2 {
+  padding-left: 5px;
+  padding-top: 2px;
+}
+
+.favorites_1 {
+  padding-left: 4px;
+}
+
+.favorites_2:hover {
+  color: cornflowerblue;
+}
+
+.favorites_1:hover {
+  color: cornflowerblue;
+}
+
+.favorite_switch {
+  margin-left: 40px;
 }
 
 

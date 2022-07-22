@@ -14,12 +14,6 @@ service.interceptors.response.use(
         const data = response.data;
         if (data.code === '10403') {
             window.localStorage.removeItem('userName');
-            console.log('remove key')
-            this.$vs.notification({
-                color: 'danger',
-                position: 'top-center',
-                text: '登录过期，请重新登录'
-            })
             this.$route.path === '/login'
         }
         return response;
